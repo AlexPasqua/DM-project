@@ -73,7 +73,7 @@ print("Number of distinct orders: ", len(tot_orders))
 print("Number of orders without CustomerID: ", count_empty)
 print("-"*50)
 
-print("Analyzing Customer values")
+print("Analyzing CustomerID values")
 customers = set([r['CustomerID'] for r in dt if r['CustomerID'] != ''])
 order_for_customer = { c:0 for c in customers}
 last_order_customer = { c:set() for c in customers}
@@ -83,15 +83,27 @@ for r in dt:
         if r['BasketID'] not in last_order_customer[customer]:
             order_for_customer[customer] += 1
             last_order_customer[customer].add(r['BasketID'])
-num_order_mean = sum(order_for_customer[c] for c in customers)/len(customers)
+mean_num_order = sum(order_for_customer[c] for c in customers)/len(customers)
 min_num_order = min(order_for_customer[c] for c in customers)
 max_num_order = max(order_for_customer[c] for c in customers)
 print("Number of distinct Customers: ", len(customers))
-print("Mean number of orders for each Customer: ", num_order_mean)
+print("Mean number of orders for each Customer: ", mean_num_order)
 print("Min number of order for a Customer: ", min_num_order)
 print("Max number of order for a Customer: ", max_num_order)
 print("Number of customers with number of order [0-50]: ", sum(1 for c in customers if order_for_customer[c] <= 50))
 print("Number of customers with number of order [51-100]: ", sum(1 for c in customers if order_for_customer[c] > 50 and order_for_customer[c] <= 100))
 print("Number of customers with number of order [100-max]: ", sum(1 for c in customers if order_for_customer[c] > 100))
 assert(len(tot_orders) - count_empty == sum(order_for_customer[c] for c in customers))
+products_for_customer = { c:list() for c in customers}
+for r in dt:
+    if r['CustomerID'] != '':
+        products_for_customer[r['CustomerID']].append(r['ProdID'])
+mean_num_prod = sum(len(products_for_customer[c]) for c in customers)/len(customers)
+min_num_prod = min(len(products_for_customer[c]) for c in customers)
+max_num_prod = max(len(products_for_customer[c]) for c in customers)
+print("Mean number of products for each Customer: ", mean_num_prod)
+print("Min number of products for a Customer: ", min_num_prod)
+print("Max number of products for a Customer: ", max_num_prod)
+unique_products = set(r['ProdID'] for r in dt)
+print("Number of unique products: ", len(unique_products))
 print("-"*50)
