@@ -27,16 +27,19 @@ q_neg = [row for row in dt if int(row['Qta']) < 0]
 print("Rows with quantity negative: ", len(q_neg))
 bid_id_neg = True
 cid_null = True
-count_notvalid_rows = 0
+count_pdesc_null = 0
+count_bid_valid = 0
 for row in q_neg:
     if 'C' not in row['BasketID']:
-        #print(row)
         bid_id_neg = False
-        cid_null = cid_null and row['CustomerID'] == ''
-        count_notvalid_rows += 1
+        count_bid_valid += 1
+    if row['ProdDescr'] in ['', '?']:
+        count_pdesc_null += 1
+    cid_null = cid_null and row['CustomerID'] == ''
 print("All entries had a special BasketID:", bid_id_neg)
-print("Rows with negative Qta but not strange id: ", count_notvalid_rows)
+print("Rows with negative Qta but normal id: ", count_bid_valid)
 print("All entries has empty CustomerID: ", cid_null)
+print("Rows with empty or '?' ProdDescr: ", count_pdesc_null)
 print("-"*50)
 print("Checking if each negative entry has a positive one...")
 #all_haspair = True
