@@ -2,9 +2,6 @@
 [
     {"A": 1, "B" : 2},
     {"A": 1, "B" : 2},
-    .
-    .
-    .
 ]
 ['BasketID', 'BasketDate', 'Sale', 'CustomerID', 'CustomerCountry', 'ProdID', 'ProdDescr', 'Qta']
 """
@@ -22,6 +19,7 @@ for line in open('customer_supermarket.csv'):
 
 print("Total rows: ", len(dt))
 print("-"*50)
+
 print("Analyzing entries with negative Qta")
 q_neg = [row for row in dt if int(row['Qta']) < 0]
 print("Rows with quantity negative: ", len(q_neg))
@@ -41,6 +39,7 @@ print("Rows with negative Qta but normal id: ", count_bid_valid)
 print("All entries has empty CustomerID: ", cid_null)
 print("Rows with empty or '?' ProdDescr: ", count_pdesc_null)
 print("-"*50)
+
 print("Checking if each negative entry has a positive one...")
 #all_haspair = True
 #not_paired = 0
@@ -62,4 +61,37 @@ print("Checking if each negative entry has a positive one...")
 #print("The negative entries which are not matched are: ", not_paired) #9752 (All)
 print("All negative entries has a positive one: ", False)
 print("The negative entries which are not matched are: ", 9752)
+print("-"*50)
+
+print("Checking rows with no CustomerID")
+tot_orders = set(r['BasketID'] for r in dt)
+order_has_customer = { o:False for o in tot_orders}
+for r in dt:
+    order_has_customer[r['BasketID']] = True if r['CustomerID'] != '' else False
+count_empty = sum(1 for _, k in order_has_customer.items() if not k)
+print("Number of distinct orders: ", len(tot_orders))
+print("Number of orders without CustomerID: ", count_empty)
+print("-"*50)
+
+print("Analyzing Customer values")
+customers = set([r['CustomerID'] for r in dt if r['CustomerID'] != ''])
+order_for_customer = { c:0 for c in customers}
+last_order_customer = { c:set() for c in customers}
+for r in dt:
+    customer = r['CustomerID']
+    if customer != '':
+        if r['BasketID'] not in last_order_customer[customer]:
+            order_for_customer[customer] += 1
+            last_order_customer[customer].add(r['BasketID'])
+num_order_mean = sum(order_for_customer[c] for c in customers)/len(customers)
+min_num_order = min(order_for_customer[c] for c in customers)
+max_num_order = max(order_for_customer[c] for c in customers)
+print("Number of distinct Customers: ", len(customers))
+print("Mean number of orders for each Customer: ", num_order_mean)
+print("Min number of order for a Customer: ", min_num_order)
+print("Max number of order for a Customer: ", max_num_order)
+print("Number of customers with number of order [0-50]: ", sum(1 for c in customers if order_for_customer[c] <= 50))
+print("Number of customers with number of order [51-100]: ", sum(1 for c in customers if order_for_customer[c] > 50 and order_for_customer[c] <= 100))
+print("Number of customers with number of order [100-max]: ", sum(1 for c in customers if order_for_customer[c] > 100))
+assert(len(tot_orders) - count_empty == sum(order_for_customer[c] for c in customers))
 print("-"*50)
