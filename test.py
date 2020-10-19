@@ -5,6 +5,12 @@
 ]
 ['BasketID', 'BasketDate', 'Sale', 'CustomerID', 'CustomerCountry', 'ProdID', 'ProdDescr', 'Qta']
 """
+import math
+import numpy as np
+import pandas as pd
+import scipy.stats as stats
+import matplotlib.pyplot as plt
+
 dt = []
 first = True
 for line in open('customer_supermarket.csv'):
@@ -20,6 +26,16 @@ for line in open('customer_supermarket.csv'):
 print("Total rows: ", len(dt))
 print("-"*50)
 
+print("Removing rows with CustomerID empty")
+copy = dt[:]
+for i in range(len(dt)):
+    #print(f"{i}/{len(dt)}")
+    if dt[i]['CustomerID'] == '':
+        copy.remove(dt[i])
+print("New size of dt: ", len(copy))
+dt = copy[:]
+print("-"*50)
+
 print("Analyzing entries with negative Qta")
 q_neg = [row for row in dt if int(row['Qta']) < 0]
 print("Rows with quantity negative: ", len(q_neg))
@@ -28,7 +44,8 @@ cid_null = True
 count_pdesc_null = 0
 count_bid_valid = 0
 for row in q_neg:
-    if 'C' not in row['BasketID']:
+    #print(type(row['BasketID']), row['BasketID'])
+    if 'C' not in row['BasketID'] and 'A' not in row['BasketID']:
         bid_id_neg = False
         count_bid_valid += 1
     if row['ProdDescr'] in ['', '?']:
@@ -41,26 +58,38 @@ print("Rows with empty or '?' ProdDescr: ", count_pdesc_null)
 print("-"*50)
 
 print("Checking if each negative entry has a positive one...")
-#all_haspair = True
-#not_paired = 0
-#counter = 0
-#total = len(q_neg)
-#for row in q_neg:
-#    counter += 1
-#    print(f"{counter}/{total}")
-#    found = False
-#    for elem in [e for e in dt if e['BasketID'] == row['BasketID']]:
-#        if row['ProdID'] == elem['ProdID'] and int(elem['Qta']) > 0:
-#            print(row['Qta'], elem['Qta'])
-#            found = True
-#            break
-#    if not found:
-#        all_haspair = False
-#        not_paired += 1
-#print("All negative entries has a positive one: ", all_haspair) #False
-#print("The negative entries which are not matched are: ", not_paired) #9752 (All)
-print("All negative entries has a positive one: ", False)
-print("The negative entries which are not matched are: ", 9752)
+all_haspair = True
+not_paired = 0
+counter = 0
+total = len(q_neg)
+count_pair = 0
+count_legal = 0
+for row in q_neg:
+    counter += 1
+    #print(f"{counter}/{total}")
+    found = False
+    for elem in dt:
+        if row['CustomerID'] == elem['CustomerID'] and row['ProdID'] == elem['ProdID'] and int(elem['Qta']) > 0:
+            #print(row['Qta'], elem['Qta'])
+            found = True
+            count_pair += 1
+            if abs(int(row['Qta'])) <= int(elem['Qta']):
+                count_legal += 1
+            break
+    if not found:
+        all_haspair = False
+        not_paired += 1
+print("All negative entries has a positive one: ", all_haspair) #False
+print("The negative entries which are not matched are: ", not_paired) #1152 (All)
+print("The negative entries which are matched are: ", count_pair) #8600
+assert(len(q_neg) == not_paired + count_pair)
+print("The legal negative entries are: ", count_legal) #7719
+print("All negative entries has a positive one: ", False) #False
+
+#print("All negative entries has a positive one: ", False) #False
+#print("The negative entries which are not matched are: ", 1152) #1152 (All)
+#print("The negative entries which are matched are: ", 8600) #8600
+#print("The legal negative entries are: ", 7719) #7719
 print("-"*50)
 
 print("Checking rows with no CustomerID")
@@ -107,3 +136,20 @@ print("Max number of products for a Customer: ", max_num_prod)
 unique_products = set(r['ProdID'] for r in dt)
 print("Number of unique products: ", len(unique_products))
 print("-"*50)
+
+exit(1)
+
+df = pd.read_csv('customer_supermarket.csv', sep='\t', index_col=0)
+
+bad_rows_indeces = []
+nan_Customers_basketID = np.unique(df.loc[df["CustomerID"].isna(), ["BasketID"]].to_numpy())
+found = 0
+tot = len(nan_Customers_basketID)
+for i in range(tot):
+    print(f"{i}/{tot}")
+    for row in dt:
+        if row['BasketID'] == nan_Customers_basketID[i]:
+            print(row)
+            if row['CustomerID'] != '':
+                found += 1  
+print(found)
