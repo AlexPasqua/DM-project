@@ -11,6 +11,7 @@ import pandas as pd
 import scipy.stats as stats
 import matplotlib.pyplot as plt
 
+# Create data structure
 dt = []
 first = True
 for line in open('customer_supermarket.csv'):
