@@ -1,0 +1,31 @@
+DataAnalysis:
+[
+	# Multiple Nations
+	Maybe house changes/second house(?)
+	Choose the one who appears the most or random OR remove all
+]
+
+# NAN CustomerID
+Removed, invalid data
+
+# QTA < 0
+If it refers to a product that has been bought and |n_q| <= p_q then we consider it
+else we discard (maybe it refers to element outside the observation period)
+
+# ProdID Description shit (random words)
+
+# Handling outliers
+
+Indexes:
+I: the total number of items purchased by a customer during the period of observation
+Iu: the number of distinct items bought by a customer in the period of observation
+Imax: the maximum number of items purchased by a customer during a shopping session
+E: the Shannon entropy on the purchasing behaviour of the customer
+ProdPerOrderMean: mean number of items purchased by a customer during a shopping session
+SaleTot: total amount spent during the period of observation
+SaleTotWithoutReturn: total amount spent without negative quantity during the period of observation
+SaleMin: min amout spent during the shopping session
+SaleMeanPerOrder: mean amount spent for each order during the period of observation
+NumRetProd: number of returned products in the period of observation
+NumDistRetProd: number of distinct returned products in the period of observation
+MeanProdCostInOrder: mean cost of the products in the order

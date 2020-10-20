@@ -1,0 +1,36 @@
+Total rows:  471910
+--------------------------------------------------
+Removing rows with CustomerID empty
+New size of dt:  406830
+--------------------------------------------------
+Analyzing entries with negative Qta
+Rows with quantity negative:  8905
+All entries had a special BasketID: True
+Rows with negative Qta but normal id:  0
+All entries has empty CustomerID:  False
+Rows with empty or '?' ProdDescr:  0
+--------------------------------------------------
+Checking if each negative entry has a positive one...
+All negative entries has a positive one:  False
+The negative entries which are not matched are:  948
+The negative entries which are matched are:  7957
+The legal negative entries are:  7574
+All negative entries has a positive one:  False
+--------------------------------------------------
+Checking rows with no CustomerID
+Number of distinct orders:  22190
+Number of orders without CustomerID:  0
+--------------------------------------------------
+Analyzing CustomerID values
+Number of distinct Customers:  4372
+Mean number of orders for each Customer:  5.07548032936871
+Min number of order for a Customer:  1
+Max number of order for a Customer:  248
+Number of customers with number of order [0-50]:  4348
+Number of customers with number of order [51-100]:  18
+Number of customers with number of order [100-max]:  6
+Mean number of products for each Customer:  93.05352241537054
+Min number of products for a Customer:  1
+Max number of products for a Customer:  7983
+Number of unique products:  3684
+--------------------------------------------------
