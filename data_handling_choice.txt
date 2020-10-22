@@ -29,3 +29,9 @@ SaleMeanPerOrder: mean amount spent for each order during the period of observat
 NumRetProd: number of returned products in the period of observation
 NumDistRetProd: number of distinct returned products in the period of observation
 MeanProdCostInOrder: mean cost of the products in the order
+
+#Look at period and adapt indexes to time (trimester, semester, year ..)
+OrderPerMonth
+OrderPerTrimester
+...
+MonthHighestOrder
