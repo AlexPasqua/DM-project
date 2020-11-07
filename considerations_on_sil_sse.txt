@@ -1,0 +1,11 @@
+['MaxPO','TSale','MinPO','MeanProdOrder','MeanPSale','SETSaleQta'] (k = 5)
+SSE: 30.280403567091255  - SILHOUETTE: 0.44595740215207125
+
+['MaxPO','TSale','MinPO','MeanProdOrder','MeanPSale'] (k = 5)
+SSE: 8.226763083277724  - SILHOUETTE: 0.6463488609760648
+
+['MaxPO','TSale','MinPO','MeanProdOrder','MeanPSale'] (k = 6)
+SSE: 6.835351850353946  - SILHOUETTE: 0.647361432618062
+
+['MaxPO','TSale','MinPO','MeanProdOrder','MeanPSale'] (k = 4)
+SSE: 9.906996332257783  - SILHOUETTE: 0.6674244498072588
