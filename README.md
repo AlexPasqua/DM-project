@@ -28,9 +28,17 @@ Carefully describe your decisions for each algorithm and which are the advantage
 	* Genetic Algorithms
 5. Final evaluation of the best clustering approach and comparison of the clustering obtained
 
-*NEXT FOCUS*
-# Predictive Analysis
+# Classification Analysis
 Consider the problem of predicting for each customer a label that defines if (s)he is a **high-spending** customer, **medium-spending** customer or **low-spending** customer.
 1. Define a customer profile that enables the above customer classification. Please, reason on the suitability of the customer profile, defined for the clustering analysis. In case this profile is not suitable for the above prediction problem you can also change the indicators.
-2. Compute the label for any customer. Note that, the class to be predicted must be nominal.
-3. Perform the predictive analysis comparing the performance of different models discussing the results and discussing the possible preprocessing that they applied to the data for managing possible problems identified that can make the prediction hard. Note that the evaluation should be performed on both training and test set.
+	* KMeans clustering labels
+	* Fuzzy C-Means clustering labels
+2. Perform the predictive analysis comparing the performance of different models discussing the results and discussing the possible preprocessing that they applied to the data for managing possible problems identified that can make the prediction hard. Note that the evaluation should be performed on both training and test set.
+	* Decision Tree
+	* Random Forest
+	* Naïve Bayes
+	* KNN
+	* SVM
+	* Neural Networks
+	* Oversampling using SMOTE
+3. Final analysis on model explainability
