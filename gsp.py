@@ -7,9 +7,18 @@ from operator import itemgetter
 
 from joblib import Parallel, delayed
 import multiprocessing
+from multiprocessing import Pool, freeze_support, cpu_count
 import os
 import time
 from tqdm import trange
+import tqdm
+
+import math
+import numpy as np
+import pandas as pd
+import scipy.stats as stats
+import matplotlib.pyplot as plt
+from collections import OrderedDict
 
 # #### Our dataset format
 # An event is a list of strings.
@@ -33,18 +42,22 @@ from tqdm import trange
 """
 Computes the support of a sequence in a dataset
 """
-def countSupport(dataset, candidateSequence):
-    # num_cores = multiprocessing.cpu_count()
-    # results = Parallel(n_jobs=num_cores)(delayed(isSubsequence)(seq, candidateSequence) for seq in dataset)    
-    # return sum(1 for res in results if res)
-    return sum(1 for seq in dataset if isSubsequence(seq, candidateSequence))
-
-
+def countSupport(dataset, candidateSequence, min_threshold):
+    total = 0
+    len_dt = len(dataset)
+    for seq in dataset:
+        len_dt -= 1
+        if isSubsequence(seq, candidateSequence):
+            total += 1
+        if total > min_threshold or total + len_dt < min_threshold:
+            return total
+    return total
+    #return sum(1 for seq in dataset if isSubsequence(seq, candidateSequence))
 
 #This is a simple recursive method that checks if subsequence is a subSequence of mainSequence
 def isSubsequence(mainSequence, subSequence):
     subSequenceClone = list(subSequence)  # clone the sequence, because we will alter it
-    return isSubsequenceRecursive(mainSequence, subSequenceClone)  # start recursion
+    return isSubsequenceIterative(mainSequence, subSequenceClone)  # start recursion
 
 """
 Function for the recursive call of isSubsequence, not intended for external calls
@@ -183,13 +196,13 @@ def apriori(dataset, minSupport, verbose=False):
     itemsInDataset = sorted(set([item for sublist1 in dataset for sublist2 in sublist1 for item in sublist2])) # is necessary? 
     singleItemSequences = [[[item]] for item in itemsInDataset] # creates starting singleton
     singleItemCounts = []
-    for item in singleItemSequences:
-        x = countSupport(dataset, item)
+    for i in trange(len(singleItemSequences)):
+        x = countSupport(dataset, singleItemSequences[i], minSupport)
         if x >= minSupport:
-            singleItemCounts.append((item, x))
+            singleItemCounts.append((singleItemSequences[i], x))
     Overall.append(singleItemCounts)
     if verbose:
-        print("Result, lvl 1: " + str(Overall[0]))
+        print("Result, lvl 1")
     k = 1
     while True:
         if not Overall[k - 1]:
@@ -207,7 +220,7 @@ def apriori(dataset, minSupport, verbose=False):
         candidatesCounts = []
         tot = len(candidatesPruned)
         for i in trange(tot):
-            candidatesCounts.append((candidatesPruned[i], countSupport(dataset, candidatesPruned[i])))
+            candidatesCounts.append((candidatesPruned[i], countSupport(dataset, candidatesPruned[i], minSupport)))
         resultLvl = [(i, count) for (i, count) in candidatesCounts if (count >= minSupport)]
         if verbose:
             print("Result, lvl ", k + 1)
@@ -221,13 +234,33 @@ def apriori(dataset, minSupport, verbose=False):
     return Overall
 
 if __name__ == "__main__":
-    with open('5.sequences_of_poits.text') as f:
-        content = f.readlines()
-    content = [ [ [event] for event in x.strip().split()[:-1] ] for x in content]
+    df = pd.read_csv('datasets/cleaned_dataframe.csv', sep='\t', index_col=0)
+    dfc = pd.read_csv('datasets/customer_dataframe.csv', sep='\t', index_col=0)
+    print("Total amount of customers:",len(dfc['TOrder']))
+    print("Total amount of customers with < 5 orders:",len(dfc[dfc['TOrder'] < 5]))
+    print("Total amount of customers with < 4 orders:",len(dfc[dfc['TOrder'] < 4]))
+    print("Total amount of customers with < 3 orders:",len(dfc[dfc['TOrder'] < 3]))
+    # here we can decide which ones to prune, < 5 can be good maybe
+    to_prune = dfc[dfc['TOrder']<5].index
+    df = df[~df['CustomerID'].isin(to_prune)]
+    df['BasketDate'] = pd.to_datetime(df["BasketDate"], dayfirst=True)
+    cust_trans_dates = {}
+    cust_trans = {}
+    print("Creating structure")
+    for customer in tqdm.tqdm(df['CustomerID'].unique()):
+        cust_trans_ord_dict = OrderedDict()
+        cust_trans_list = list()
+        cust_df = df.loc[df['CustomerID'] == customer,['BasketID', 'BasketDate', 'ProdID']]
+        for basket in cust_df['BasketID'].unique():
+            prod_list = cust_df[cust_df['BasketID'] == basket]['ProdID'].unique().tolist() #REMINDER FOR MYSELF: IS IT CORRECT TO MAINTAIN IN A TRANSACTION ONLY UNIQUE PRODIDS, NO REPETITIONS? FROM WHAT I SEE THIS SEEMS TO BE THE CASE BUT TRY TO SEARCH FOR CONFIRMATION
+            date = cust_df[cust_df['BasketID'] == basket]['BasketDate'].unique()[0] #because of what said above we can take first date of order (at max we will have 2 elements differing of 1 minute)
+            cust_trans_ord_dict[date] = prod_list
+            cust_trans_list.append(prod_list)
+        cust_trans_dates[customer] = cust_trans_ord_dict
+        cust_trans[customer] = cust_trans_list
 
-    print("Number of input sequences: ", len(content))
-    print("Total number of events: ", sum([len(seq) for seq in content])) 
-    res3 = apriori(content, 30, verbose=True)
-    print(len(res3))
-    print(res3)
-                                             
+    print("Starting GSP")
+    trans = list(cust_trans.values())
+    result_set = apriori(trans, 20, verbose=True)
+    # recompute support
+    print(result_set)
