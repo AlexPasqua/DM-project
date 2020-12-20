@@ -261,6 +261,6 @@ if __name__ == "__main__":
 
     print("Starting GSP")
     trans = list(cust_trans.values())
-    result_set = apriori(trans, 90, verbose=False)
+    result_set = apriori(trans, 120, verbose=False)
     # recompute support
     print(result_set)
