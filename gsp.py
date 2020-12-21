@@ -190,13 +190,11 @@ Returns:
 """
 def apriori(dataset, minSupport, verbose=False):
     start = time.time()
-    global numberOfCountingOperations
-    numberOfCountingOperations = 0
     Overall = []
     itemsInDataset = sorted(set([item for sublist1 in dataset for sublist2 in sublist1 for item in sublist2])) # is necessary? 
     singleItemSequences = [[[item]] for item in itemsInDataset] # creates starting singleton
     singleItemCounts = []
-    for i in trange(len(singleItemSequences)):
+    for i in trange(len(singleItemSequences), desc=f"Level: {1}"):
         x = countSupport(dataset, singleItemSequences[i], minSupport)
         if x >= minSupport:
             singleItemCounts.append((singleItemSequences[i], x))
@@ -219,7 +217,7 @@ def apriori(dataset, minSupport, verbose=False):
         # 3. Candidate checking
         candidatesCounts = []
         tot = len(candidatesPruned)
-        for i in trange(tot):
+        for i in trange(tot, desc=f"Level: {k+1}"):
             candidatesCounts.append((candidatesPruned[i], countSupport(dataset, candidatesPruned[i], minSupport)))
         resultLvl = [(i, count) for (i, count) in candidatesCounts if (count >= minSupport)]
         if verbose:
@@ -261,6 +259,6 @@ if __name__ == "__main__":
 
     print("Starting GSP")
     trans = list(cust_trans.values())
-    result_set = apriori(trans, 120, verbose=False)
+    result_set = apriori(trans, 60, verbose=False)
     # recompute support
     print(result_set)
