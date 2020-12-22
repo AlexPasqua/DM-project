@@ -42,12 +42,12 @@ from collections import OrderedDict
 """
 Computes the support of a sequence in a dataset
 """
-def countSupport(dataset, candidateSequence, min_threshold):
+def countSupport(dataset, candidateSequence, min_threshold, minGap, maxGap, maxSpan, use_time_constraints):
     total = 0
     len_dt = len(dataset)
     for seq in dataset:
         len_dt -= 1
-        if isSubsequence(seq, candidateSequence):
+        if isSubsequence(seq, candidateSequence, minGap, maxGap, maxSpan, use_time_constraints):
             total += 1
         if total > min_threshold or total + len_dt < min_threshold:
             return total
@@ -55,33 +55,46 @@ def countSupport(dataset, candidateSequence, min_threshold):
     #return sum(1 for seq in dataset if isSubsequence(seq, candidateSequence))
 
 #This is a simple recursive method that checks if subsequence is a subSequence of mainSequence
-def isSubsequence(mainSequence, subSequence):
+def isSubsequence(mainSequence, subSequence, minGap, maxGap, maxSpan, use_time_constraints):
     subSequenceClone = list(subSequence)  # clone the sequence, because we will alter it
-    return isSubsequenceIterative(mainSequence, subSequenceClone)  # start recursion
+    return isSubsequenceIterative(mainSequence, subSequenceClone, minGap, maxGap, maxSpan, use_time_constraints)  # start recursion
 
-"""
-Function for the recursive call of isSubsequence, not intended for external calls
-"""
-def isSubsequenceRecursive(mainSequence, subSequenceClone, start=0):
-    # Check if empty: End of recursion, all itemsets have been found
-    if (not subSequenceClone):
-        return True
-    # retrieves element of the subsequence and removes is from subsequence
-    firstElem = set(subSequenceClone.pop(0))
-    # Search for the first itemset...
-    for i in range(start, len(mainSequence)):
-        if (set(mainSequence[i]).issuperset(firstElem)):
-            # and recurse
-            return isSubsequenceRecursive(mainSequence, subSequenceClone, i + 1)
-    return False
+# through out attempts it resulted that the recursive approach is (in this case) faster than the iterative
+# but the space complexity is prohibitive for non-small datasets, hence we use the iterative approach
 
-def isSubsequenceIterative(mainSequence, subSequenceClone):
+# """
+# Function for the recursive call of isSubsequence, not intended for external calls
+# """
+# def isSubsequenceRecursive(mainSequence, subSequenceClone, start=0):
+#     # Check if empty: End of recursion, all itemsets have been found
+#     if (not subSequenceClone):
+#         return True
+#     # retrieves element of the subsequence and removes is from subsequence
+#     firstElem = set(subSequenceClone.pop(0))
+#     # Search for the first itemset...
+#     for i in range(start, len(mainSequence)):
+#         if (set(mainSequence[i]).issuperset(firstElem)):
+#             # and recurse
+#             return isSubsequenceRecursive(mainSequence, subSequenceClone, i + 1)
+#     return False
+
+def isSubsequenceIterative(mainSequence, subSequenceClone, minGap, maxGap, maxSpan, use_time_constraints):
     start = 0
+    lastDate = None
+    firstDate = 0
     while subSequenceClone:
         found = False
         nextElem = subSequenceClone.pop(0)
         for i in range(start, len(mainSequence)):
-            if (set(mainSequence[i]).issuperset(nextElem)):
+            if (set(mainSequence[i][0]).issuperset(nextElem)):
+                if use_time_constraints:
+                    if lastDate is None:
+                        firstDate = mainSequence[i][1]
+                    else:
+                        delta = (mainSequence[i][1] - lastDate).days
+                        if delta > maxGap or delta < minGap or (mainSequence[i][1] - firstDate).days > maxSpan:
+                            return False
+                    lastDate = mainSequence[i][1]
                 found = True
                 start = i+1
                 break
@@ -188,14 +201,14 @@ Args:
 Returns:
     A list of tuples (s, c), where s is a frequent sequence, and c is the count for that sequence
 """
-def apriori(dataset, minSupport, verbose=False):
+def apriori(dataset, minSupport, minGap=0, maxGap=15, maxSpan=60, use_time_constraints=False, verbose=False): # minGap, maxGap and maxSpan are all in days
     start = time.time()
     Overall = []
-    itemsInDataset = sorted(set([item for sublist1 in dataset for sublist2 in sublist1 for item in sublist2])) # is necessary? 
+    itemsInDataset = sorted(set([item for sublist1 in dataset for sublist2 in sublist1 for item in sublist2[0]])) # is necessary? 
     singleItemSequences = [[[item]] for item in itemsInDataset] # creates starting singleton
     singleItemCounts = []
     for i in trange(len(singleItemSequences), desc=f"Level: {1}"):
-        x = countSupport(dataset, singleItemSequences[i], minSupport)
+        x = countSupport(dataset, singleItemSequences[i], minSupport, minGap, maxGap, maxSpan, use_time_constraints)
         if x >= minSupport:
             singleItemCounts.append((singleItemSequences[i], x))
     Overall.append(singleItemCounts)
@@ -218,7 +231,7 @@ def apriori(dataset, minSupport, verbose=False):
         candidatesCounts = []
         tot = len(candidatesPruned)
         for i in trange(tot, desc=f"Level: {k+1}"):
-            candidatesCounts.append((candidatesPruned[i], countSupport(dataset, candidatesPruned[i], minSupport)))
+            candidatesCounts.append((candidatesPruned[i], countSupport(dataset, candidatesPruned[i], minSupport, minGap, maxGap, maxSpan, use_time_constraints)))
         resultLvl = [(i, count) for (i, count) in candidatesCounts if (count >= minSupport)]
         if verbose:
             print("Result, lvl ", k + 1)
