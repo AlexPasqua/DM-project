@@ -255,23 +255,18 @@ if __name__ == "__main__":
     to_prune = dfc[dfc['TOrder']<5].index
     df = df[~df['CustomerID'].isin(to_prune)]
     df['BasketDate'] = pd.to_datetime(df["BasketDate"], dayfirst=True)
-    cust_trans_dates = {}
-    cust_trans = {}
-    print("Creating structure")
-    for customer in tqdm.tqdm(df['CustomerID'].unique()):
-        cust_trans_ord_dict = OrderedDict()
-        cust_trans_list = list()
+    cust_trans_with_dates_list = {}
+    for customer in df['CustomerID'].unique():
+        cust_trans_with_dates = []
         cust_df = df.loc[df['CustomerID'] == customer,['BasketID', 'BasketDate', 'ProdID']]
         for basket in cust_df['BasketID'].unique():
-            prod_list = cust_df[cust_df['BasketID'] == basket]['ProdID'].unique().tolist() #REMINDER FOR MYSELF: IS IT CORRECT TO MAINTAIN IN A TRANSACTION ONLY UNIQUE PRODIDS, NO REPETITIONS? FROM WHAT I SEE THIS SEEMS TO BE THE CASE BUT TRY TO SEARCH FOR CONFIRMATION
-            date = cust_df[cust_df['BasketID'] == basket]['BasketDate'].unique()[0] #because of what said above we can take first date of order (at max we will have 2 elements differing of 1 minute)
-            cust_trans_ord_dict[date] = prod_list
-            cust_trans_list.append(prod_list)
-        cust_trans_dates[customer] = cust_trans_ord_dict
-        cust_trans[customer] = cust_trans_list
+            prod_list = cust_df[cust_df['BasketID'] == basket]['ProdID'].unique().tolist()
+            date = cust_df[cust_df['BasketID'] == basket]['BasketDate'].iloc[0] #because of what said above we can take first date of order (at max we will have 2 elements differing of 1 minute)
+            cust_trans_with_dates.append((prod_list,date))
+        cust_trans_with_dates_list[customer] = cust_trans_with_dates
 
     print("Starting GSP")
-    trans = list(cust_trans.values())
-    result_set = apriori(trans, 60, verbose=False)
+    trans = list(cust_trans_with_dates_list.values())
+    result_set = apriori(trans, 60, minGap=0, maxGap=45, maxSpan=240, use_time_constraints=True, verbose=False)
     # recompute support
     print(result_set)
