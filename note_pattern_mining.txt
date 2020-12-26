@@ -1,0 +1,6 @@
+Le seq sono di oggetti ripetuti (gli stessi), poche hanno oggetti diversi al loro interno.
+Gli acquisti nelle seq sono tendenzialmente distanziati --> molte seq vengono eliminate introducendo i time constraints
+
+Poche sottoseq hanno più elementi --> c'è poco di condiviso tra i vari customer (pochi ordini con vari elementi comuni)
+
+Gli oggetti nelle seq più frequenti corrispondono agli oggetti più comuni all'interno del dataset
