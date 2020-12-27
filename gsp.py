@@ -1,45 +1,41 @@
-# coding: utf-8
-# # Preliminaries
-import copy
-import itertools
-from collections import defaultdict
-from operator import itemgetter
+# Univerisity of Pisa
+# Data Mining (AY 2020/2021)
+# Professor: Anna Monreale
+# Students: Elia Piccoli, Nicola Gugole, Alex Pasquali
 
-from joblib import Parallel, delayed
-import multiprocessing
-from multiprocessing import Pool, freeze_support, cpu_count
-import os
+import copy
 import time
 from tqdm import trange
-import tqdm
 
-import math
-import numpy as np
-import pandas as pd
-import scipy.stats as stats
-import matplotlib.pyplot as plt
-from collections import OrderedDict
+def optCountSupport(dataset, candidateSequence, min_threshold, minGap, maxGap, maxSpan, use_time_constraints):
+    """Optimized computation for the support of a sequence in a dataset.
 
-def countSupport(dataset, candidateSequence, min_threshold, minGap, maxGap, maxSpan, use_time_constraints):
+    It will check until one of the two contidion is true:
+        (1) The support is greater than min_threshold
+        (2) There aren't enough elements to satify min_threshold
+
+    Parameters
+    ----------
+    min_threshold : int
+        minimum support
+
+    minGap : int 
+        minimum gap between element in pattern (in days)
+
+    maxGap : int
+        maximum gap between element in pattern (in days)
+
+    maxSpan : int
+        maximum span of pattern (in days)
+
+    use_time_constraints : bool
+        True = use time constraint
+
+    Returns
+    ----------
+        The approximated support of the sequence
     """
-        Optimized computation for the support of a sequence in a dataset.
 
-        It will check until one of the two contidion is true:
-            (1) The support is greater than min_threshold
-            (2) There aren't enough elements to satify min_threshold
-
-        Parameters:
-
-            min_threshold (float/int) : minimum support
-            
-            minGap (int) : minimum gap between element in pattern (in days)
-            
-            maxGap (int) : maximum gap between element in pattern (in days)
-            
-            maxSpan (int) : maximum span of pattern (in days)
-            
-            use_time_constraints (bool) : True = use time constraint
-    """
     total = 0
     len_dt = len(dataset)
     for seq in dataset:
@@ -49,6 +45,42 @@ def countSupport(dataset, candidateSequence, min_threshold, minGap, maxGap, maxS
         if total > min_threshold or total + len_dt < min_threshold:
             return total
     return total
+
+def countSupport_Customers(dataset, candidateSequence, min_threshold, minGap, maxGap, maxSpan, use_time_constraints):
+    """Complete computation for the support and list of customers of a sequence in a dataset
+
+    Parameters
+    ----------
+    min_threshold : int
+        minimum support
+
+    minGap : int 
+        minimum gap between element in pattern (in days)
+
+    maxGap : int
+        maximum gap between element in pattern (in days)
+
+    maxSpan : int
+        maximum span of pattern (in days)
+
+    use_time_constraints : bool
+        True = use time constraint
+
+    Return
+    ----------
+    tuple:
+        0 : The exact support of the sequence
+
+        1 : List of index of customer that contains the pattern
+    """
+
+    total = 0
+    customers = []
+    for i in range(len(dataset)):
+        if isSubsequence(dataset[i], candidateSequence, minGap, maxGap, maxSpan, use_time_constraints):
+            customers.append(i)
+            total += 1
+    return total, customers
 
 def isSubsequence(mainSequence, subSequence, minGap, maxGap, maxSpan, use_time_constraints):
     subSequenceClone = list(subSequence)  # clone the sequence, because we will alter it
@@ -97,9 +129,9 @@ def isSubsequenceIterative(mainSequence, subSequenceClone, minGap, maxGap, maxSp
     return True
 
 def generateCandidatesForPair(cand1, cand2):
+    """ Generates one candidate of size k from two candidates of size (k-1) as used in the apriori algorithm
     """
-        Generates one candidate of size k from two candidates of size (k-1) as used in the AprioriAll algorithm
-    """
+    
     cand1Clone = copy.deepcopy(cand1)
     cand2Clone = copy.deepcopy(cand2)
     # drop the leftmost item from cand1:
@@ -125,9 +157,9 @@ def generateCandidatesForPair(cand1, cand2):
         return newCandidate
 
 def generateCandidates(lastLevelCandidates):
+    """ Generates the set of candidates of size k from the set of frequent sequences with size (k-1)
     """
-        Generates the set of candidates of size k from the set of frequent sequences with size (k-1)
-    """
+
     k = sum(len(i) for i in lastLevelCandidates[0]) + 1
     if k == 2:
         flatShortCandidates = [item for sublist2 in lastLevelCandidates for sublist1 in sublist2 for item in sublist1]
@@ -145,13 +177,14 @@ def generateCandidates(lastLevelCandidates):
         return candidates
 
 def generateDirectSubsequences(sequence):
+    """Computes all direct subsequence for a given sequence.
+
+    A direct subsequence is any sequence that originates from deleting exactly one item from any element in the original sequence.
     """
-        Computes all direct subsequence for a given sequence.
-        A direct subsequence is any sequence that originates from deleting exactly one item from any element in the original sequence.
-    """
+
     result = []
     for i, itemset in enumerate(sequence):
-        if (len(itemset) == 1):
+        if len(itemset) == 1:
             sequenceClone = copy.deepcopy(sequence)
             sequenceClone.pop(i)
             result.append(sequenceClone)
@@ -162,42 +195,51 @@ def generateDirectSubsequences(sequence):
                 result.append(sequenceClone)
     return result
 
-# is this better (?)
-def pruneCandidates(candidatesLastLevel, candidatesGenerated):
-    """
-        Prunes the set of candidates generated for size k given all frequent sequence of level (k-1), as done in AprioriAll
-    """
-    result = []
-    for cand in candidatesGenerated:
-        check = True
-        r = generateDirectSubsequences(cand)
-        for x in r and check:
-            check = check and x in candidatesLastLevel
-        if check:
-            result.append(check)
-    
-    # return [cand for cand in candidatesGenerated if all(x in candidatesLastLevel for x in generateDirectSubsequences(cand))]
+# minGap, maxGap and maxSpan are all in days
+def optApriori(dataset, minSupport, minGap=0, maxGap=15, maxSpan=60, use_time_constraints=False, verbose=False):
+    """Optimized apriori algorithm.
+        
+    Computes the frequent sequences in a sequence dataset for a given minSupport.
 
+    Parameters
+    ----------
+    dataset : list of list
+        list of sequences, for which the frequent (sub-)sequences are computed
+        
+    minSupport : int
+        minimum support
 
-# ### Put it all together:
-def apriori(dataset, minSupport, minGap=0, maxGap=15, maxSpan=60, use_time_constraints=False, verbose=False): # minGap, maxGap and maxSpan are all in days
-    """
-        The AprioriAll algorithm. Computes the frequent sequences in a seqeunce dataset for a given minSupport
+    minGap : int 
+        minimum gap between element in pattern (in days)
 
-        Args:
-            dataset: A list of sequences, for which the frequent (sub-)sequences are computed
-            minSupport: The minimum support that makes a sequence frequent
-            verbose: If true prints the state of the computation of different steps
-        Returns:
-            A list of tuples (s, c), where s is a frequent sequence, and c is the count for that sequence
+    maxGap : int
+        maximum gap between element in pattern (in days)
+
+    maxSpan : int
+        maximum span of pattern (in days)
+
+    use_time_constraints : bool
+        True = use time constraint
+
+    verbose : bool
+        True prints the state of the computation of different steps
+
+    Return
+    ----------
+    (s, c) : list of tuples 
+
+            0 : frequent sequence
+        
+            1 : approximated count for that sequence (due to optimization)
     """
+
     start = time.time()
     Overall = []
     itemsInDataset = sorted(set([item for sublist1 in dataset for sublist2 in sublist1 for item in sublist2[0]]))
-    singleItemSequences = [[[item]] for item in itemsInDataset] # creates starting singleton
+    singleItemSequences = [[[item]] for item in itemsInDataset]
     singleItemCounts = []
     for i in trange(len(singleItemSequences), desc=f"Level: {1}"):
-        x = countSupport(dataset, singleItemSequences[i], minSupport, minGap, maxGap, maxSpan, use_time_constraints)
+        x = optCountSupport(dataset, singleItemSequences[i], minSupport, minGap, maxGap, maxSpan, use_time_constraints)
         if x >= minSupport:
             singleItemCounts.append((singleItemSequences[i], x))
     Overall.append(singleItemCounts)
@@ -212,51 +254,88 @@ def apriori(dataset, minSupport, minGap=0, maxGap=15, maxSpan=60, use_time_const
         candidatesGenerated = generateCandidates(candidatesLastLevel)
         if verbose:
             print("Candidates generated, lvl ", k + 1)
-        # 2. Candidate pruning (using a "containsall" subsequences)
-        candidatesPruned = [cand for cand in candidatesGenerated if all(x in candidatesLastLevel for x in generateDirectSubsequences(cand))]
+        # 2. Candidate pruning
+        candidatesPruned = []
+        for cand in candidatesGenerated:
+            check = True
+            r = generateDirectSubsequences(cand)
+            for x in r:
+                check = check and x in candidatesLastLevel
+                if not check:
+                    break
+            if check:
+                candidatesPruned.append(cand)
+        # on average 0-10 sec faster on our dataset (keep it ?)
+        # candidatesPruned = [cand for cand in candidatesGenerated if all(x in candidatesLastLevel for x in generateDirectSubsequences(cand))]
         if verbose:
             print("Candidates pruned, lvl ", k + 1)
         # 3. Candidate checking
         candidatesCounts = []
         tot = len(candidatesPruned)
         for i in trange(tot, desc=f"Level: {k+1}"):
-            candidatesCounts.append((candidatesPruned[i], countSupport(dataset, candidatesPruned[i], minSupport, minGap, maxGap, maxSpan, use_time_constraints)))
-        resultLvl = [(i, count) for (i, count) in candidatesCounts if (count >= minSupport)]
+            supp = optCountSupport(dataset, candidatesPruned[i], minSupport, minGap, maxGap, maxSpan, use_time_constraints)
+            if supp >= minSupport:
+                candidatesCounts.append((candidatesPruned[i], supp))
+        resultLvl = candidatesCounts
         if verbose:
             print("Result, lvl ", k + 1)
         Overall.append(resultLvl)
         k = k + 1
-    # "flatten" Overall
+    # Creates a list of all the results from different levels
     Overall = Overall[:-1]
     Overall = [item for sublist in Overall for item in sublist]
     end = time.time()
-    print("Total Time", end-start)
+    print("Total Time: ", end-start)
     return Overall
 
-if __name__ == "__main__":
-    df = pd.read_csv('datasets/cleaned_dataframe.csv', sep='\t', index_col=0)
-    dfc = pd.read_csv('datasets/customer_dataframe.csv', sep='\t', index_col=0)
-    print("Total amount of customers:",len(dfc['TOrder']))
-    print("Total amount of customers with < 5 orders:",len(dfc[dfc['TOrder'] < 5]))
-    print("Total amount of customers with < 4 orders:",len(dfc[dfc['TOrder'] < 4]))
-    print("Total amount of customers with < 3 orders:",len(dfc[dfc['TOrder'] < 3]))
-    # here we can decide which ones to prune, < 5 can be good maybe
-    to_prune = dfc[dfc['TOrder']<5].index
-    df = df[~df['CustomerID'].isin(to_prune)]
-    df['BasketDate'] = pd.to_datetime(df["BasketDate"], dayfirst=True)
-    cust_trans_with_dates_list = {}
-    for customer in df['CustomerID'].unique():
-        cust_trans_with_dates = []
-        cust_df = df.loc[df['CustomerID'] == customer,['BasketID', 'BasketDate', 'ProdID']]
-        for basket in cust_df['BasketID'].unique():
-            prod_list = cust_df[cust_df['BasketID'] == basket]['ProdID'].unique().tolist()
-            date = cust_df[cust_df['BasketID'] == basket]['BasketDate'].iloc[0] #because of what said above we can take first date of order (at max we will have 2 elements differing of 1 minute)
-            cust_trans_with_dates.append((prod_list,date))
-        cust_trans_with_dates_list[customer] = cust_trans_with_dates
+def apriori(dataset, minSupport, minGap=0, maxGap=15, maxSpan=60, use_time_constraints=False, sequences=None):
+    """Apriori algorithm.
+        
+    Computes the frequent sequences in a sequence dataset for a given minSupport.
+    This version returns the true values of support and list of index of customers
 
-    print("Starting GSP")
-    trans = list(cust_trans_with_dates_list.values())
-    result_set = apriori(trans, 60, minGap=0, maxGap=45, maxSpan=240, use_time_constraints=True, verbose=False)
-    # recompute support
-    print(result_set)
-    countSupport()
+    Parameters
+    ----------
+    dataset : list of list
+        list of sequences, for which the frequent (sub-)sequences are computed
+        
+    minSupport : int
+        minimum support
+
+    minGap : int 
+        minimum gap between element in pattern (in days)
+
+    maxGap : int
+        maximum gap between element in pattern (in days)
+
+    maxSpan : int
+        maximum span of pattern (in days)
+
+    use_time_constraints : bool
+        True = use time constraint
+
+    sequences : list of tuple
+        result structure returned by optApriori function
+
+    Return
+    ----------
+    (s, c, l) : list of tuples 
+
+        0 : frequent sequence
+    
+        1 : count for that sequence
+    
+        2 : list of customers' index that contains the sequence 
+    """ 
+
+    # to reduce time it computes the result using the optimized version and the creates the complete output on a smaller set of patterns
+    if sequences is None:
+        seq_list = optApriori(dataset, minSupport, minGap=minGap, maxGap=maxGap, maxSpan=maxSpan, use_time_constraints=use_time_constraints)
+    else:
+        seq_list = sequences
+    sequences = [elem[0] for elem in seq_list]
+    true_seq_list = []
+    for i in range(len(sequences)):
+        support,customer_indexes = countSupport_Customers(list(dataset.values()), sequences[i], minSupport, minGap, maxGap, maxSpan, use_time_constraints)
+        true_seq_list.append((sequences[i], support, customer_indexes))
+    return true_seq_list
