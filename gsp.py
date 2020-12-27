@@ -162,27 +162,35 @@ def generateDirectSubsequences(sequence):
                 result.append(sequenceClone)
     return result
 
-
-"""
-Prunes the set of candidates generated for size k given all frequent sequence of level (k-1), as done in AprioriAll
-"""
+# is this better (?)
 def pruneCandidates(candidatesLastLevel, candidatesGenerated):
-    return [cand for cand in candidatesGenerated if
-            all(x in candidatesLastLevel for x in generateDirectSubsequences(cand))]
+    """
+        Prunes the set of candidates generated for size k given all frequent sequence of level (k-1), as done in AprioriAll
+    """
+    result = []
+    for cand in candidatesGenerated:
+        check = True
+        r = generateDirectSubsequences(cand)
+        for x in r and check:
+            check = check and x in candidatesLastLevel
+        if check:
+            result.append(check)
+    
+    # return [cand for cand in candidatesGenerated if all(x in candidatesLastLevel for x in generateDirectSubsequences(cand))]
 
 
 # ### Put it all together:
-"""
-The AprioriAll algorithm. Computes the frequent sequences in a seqeunce dataset for a given minSupport
-
-Args:
-    dataset: A list of sequences, for which the frequent (sub-)sequences are computed
-    minSupport: The minimum support that makes a sequence frequent
-    verbose: If true, additional information on the mining process is printed (i.e., candidates on each level)
-Returns:
-    A list of tuples (s, c), where s is a frequent sequence, and c is the count for that sequence
-"""
 def apriori(dataset, minSupport, minGap=0, maxGap=15, maxSpan=60, use_time_constraints=False, verbose=False): # minGap, maxGap and maxSpan are all in days
+    """
+        The AprioriAll algorithm. Computes the frequent sequences in a seqeunce dataset for a given minSupport
+
+        Args:
+            dataset: A list of sequences, for which the frequent (sub-)sequences are computed
+            minSupport: The minimum support that makes a sequence frequent
+            verbose: If true prints the state of the computation of different steps
+        Returns:
+            A list of tuples (s, c), where s is a frequent sequence, and c is the count for that sequence
+    """
     start = time.time()
     Overall = []
     itemsInDataset = sorted(set([item for sublist1 in dataset for sublist2 in sublist1 for item in sublist2[0]]))
