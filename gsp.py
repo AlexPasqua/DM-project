@@ -20,29 +20,26 @@ import scipy.stats as stats
 import matplotlib.pyplot as plt
 from collections import OrderedDict
 
-# #### Our dataset format
-# An event is a list of strings.
-# A sequence is a list of events.
-# A dataset is a list of sequences.
-# Thus, a dataset is a list of lists of lists of strings.
-#
-# E.g.
-# dataset =  [
-#    [["a"], ["a", "b", "c"], ["a", "c"], ["c"]],
-#    [["a"], ["c"], ["b", "c"]],
-#    [["a", "b"], ["d"], ["c"], ["b"], ["c"]],
-#    [["a"], ["c"], ["b"], ["c"]]
-# ]
-
-
-# # Foundations
-# ### Subsequences
-
-# ### Support of a sequence
-"""
-Computes the support of a sequence in a dataset
-"""
 def countSupport(dataset, candidateSequence, min_threshold, minGap, maxGap, maxSpan, use_time_constraints):
+    """
+        Optimized computation for the support of a sequence in a dataset.
+
+        It will check until one of the two contidion is true:
+            (1) The support is greater than min_threshold
+            (2) There aren't enough elements to satify min_threshold
+
+        Parameters:
+
+            min_threshold (float/int) : minimum support
+            
+            minGap (int) : minimum gap between element in pattern (in days)
+            
+            maxGap (int) : maximum gap between element in pattern (in days)
+            
+            maxSpan (int) : maximum span of pattern (in days)
+            
+            use_time_constraints (bool) : True = use time constraint
+    """
     total = 0
     len_dt = len(dataset)
     for seq in dataset:
@@ -52,19 +49,14 @@ def countSupport(dataset, candidateSequence, min_threshold, minGap, maxGap, maxS
         if total > min_threshold or total + len_dt < min_threshold:
             return total
     return total
-    #return sum(1 for seq in dataset if isSubsequence(seq, candidateSequence))
 
-#This is a simple recursive method that checks if subsequence is a subSequence of mainSequence
 def isSubsequence(mainSequence, subSequence, minGap, maxGap, maxSpan, use_time_constraints):
     subSequenceClone = list(subSequence)  # clone the sequence, because we will alter it
-    return isSubsequenceIterative(mainSequence, subSequenceClone, minGap, maxGap, maxSpan, use_time_constraints)  # start recursion
+    return isSubsequenceIterative(mainSequence, subSequenceClone, minGap, maxGap, maxSpan, use_time_constraints)
 
-# through out attempts it resulted that the recursive approach is (in this case) faster than the iterative
+# Through out attempts it resulted that the recursive approach is (in this case) faster than the iterative
 # but the space complexity is prohibitive for non-small datasets, hence we use the iterative approach
 
-# """
-# Function for the recursive call of isSubsequence, not intended for external calls
-# """
 # def isSubsequenceRecursive(mainSequence, subSequenceClone, start=0):
 #     # Check if empty: End of recursion, all itemsets have been found
 #     if (not subSequenceClone):
@@ -78,6 +70,8 @@ def isSubsequence(mainSequence, subSequence, minGap, maxGap, maxSpan, use_time_c
 #             return isSubsequenceRecursive(mainSequence, subSequenceClone, i + 1)
 #     return False
 
+# This is the main part of the algorithm, here is where the majority of the computation is focused
+# The complexity is O(n^3) it can be reduced to O(n^2*log(n)) if we can use binary search instead of issuperset
 def isSubsequenceIterative(mainSequence, subSequenceClone, minGap, maxGap, maxSpan, use_time_constraints):
     start = 0
     lastDate = None
@@ -102,13 +96,10 @@ def isSubsequenceIterative(mainSequence, subSequenceClone, minGap, maxGap, maxSp
             return False
     return True
 
-# # AprioriAll
-# ### 1 . Candidate Generation
-# #### For a single pair:
-"""
-Generates one candidate of size k from two candidates of size (k-1) as used in the AprioriAll algorithm
-"""
 def generateCandidatesForPair(cand1, cand2):
+    """
+        Generates one candidate of size k from two candidates of size (k-1) as used in the AprioriAll algorithm
+    """
     cand1Clone = copy.deepcopy(cand1)
     cand2Clone = copy.deepcopy(cand2)
     # drop the leftmost item from cand1:
@@ -133,20 +124,12 @@ def generateCandidatesForPair(cand1, cand2):
             newCandidate[-1].extend(cand2[-1][-1])
         return newCandidate
 
-# ### Size of sequences
-"""
-Computes the size of the sequence (sum of the size of the contained elements)
-"""
-def sequenceSize(sequence):
-    return sum(len(i) for i in sequence)
-
-# #### For a set of candidates (of the last level):
-"""
-Generates the set of candidates of size k from the set of frequent sequences with size (k-1)
-"""
 def generateCandidates(lastLevelCandidates):
-    k = sequenceSize(lastLevelCandidates[0]) + 1
-    if (k == 2):
+    """
+        Generates the set of candidates of size k from the set of frequent sequences with size (k-1)
+    """
+    k = sum(len(i) for i in lastLevelCandidates[0]) + 1
+    if k == 2:
         flatShortCandidates = [item for sublist2 in lastLevelCandidates for sublist1 in sublist2 for item in sublist1]
         result = [[[a, b]] for a in flatShortCandidates for b in flatShortCandidates if b > a]
         result.extend([[[a], [b]] for a in flatShortCandidates for b in flatShortCandidates])
@@ -156,18 +139,16 @@ def generateCandidates(lastLevelCandidates):
         for i in range(0, len(lastLevelCandidates)):
             for j in range(0, len(lastLevelCandidates)):
                 newCand = generateCandidatesForPair(lastLevelCandidates[i], lastLevelCandidates[j])
-                if (not newCand == []):
+                if not newCand == []:
                     candidates.append(newCand)
         candidates.sort()
         return candidates
 
-
-# ### 2 . Candidate Checking
-"""
-Computes all direct subsequence for a given sequence.
-A direct subsequence is any sequence that originates from deleting exactly one item from any element in the original sequence.
-"""
 def generateDirectSubsequences(sequence):
+    """
+        Computes all direct subsequence for a given sequence.
+        A direct subsequence is any sequence that originates from deleting exactly one item from any element in the original sequence.
+    """
     result = []
     for i, itemset in enumerate(sequence):
         if (len(itemset) == 1):
@@ -204,7 +185,7 @@ Returns:
 def apriori(dataset, minSupport, minGap=0, maxGap=15, maxSpan=60, use_time_constraints=False, verbose=False): # minGap, maxGap and maxSpan are all in days
     start = time.time()
     Overall = []
-    itemsInDataset = sorted(set([item for sublist1 in dataset for sublist2 in sublist1 for item in sublist2[0]])) # is necessary? 
+    itemsInDataset = sorted(set([item for sublist1 in dataset for sublist2 in sublist1 for item in sublist2[0]]))
     singleItemSequences = [[[item]] for item in itemsInDataset] # creates starting singleton
     singleItemCounts = []
     for i in trange(len(singleItemSequences), desc=f"Level: {1}"):
@@ -270,3 +251,4 @@ if __name__ == "__main__":
     result_set = apriori(trans, 60, minGap=0, maxGap=45, maxSpan=240, use_time_constraints=True, verbose=False)
     # recompute support
     print(result_set)
+    countSupport()
