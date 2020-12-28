@@ -20,9 +20,14 @@
 
 import copy
 import time
+import os
+import pandas as pd
 from tqdm import trange
+from joblib import Parallel, delayed
 
-def optCountSupport(dataset, candidateSequence, min_threshold, minGap, maxGap, maxSpan, use_time_constraints):
+dt = None
+
+def optCountSupport(candidateSequence, min_threshold, minGap, maxGap, maxSpan, use_time_constraints):
     """Optimized computation for the support of a sequence in a dataset.
 
     It will check until one of the two contidion is true:
@@ -51,9 +56,10 @@ def optCountSupport(dataset, candidateSequence, min_threshold, minGap, maxGap, m
         The approximated support of the sequence
     """
 
+    global dt
     total = 0
-    len_dt = len(dataset)
-    for seq in dataset:
+    len_dt = len(dt)
+    for seq in dt:
         len_dt -= 1
         if isSubsequence(seq, candidateSequence, minGap, maxGap, maxSpan, use_time_constraints):
             total += 1
@@ -248,15 +254,20 @@ def optApriori(dataset, minSupport, minGap=0, maxGap=15, maxSpan=60, use_time_co
             1 : approximated count for that sequence (due to optimization)
     """
 
+    global dt
+    dt = copy.deepcopy(dataset)
+    numProcess = 1 if False else os.cpu_count()
     start = time.time()
     Overall = []
     itemsInDataset = sorted(set([item for sublist1 in dataset for sublist2 in sublist1 for item in sublist2[0]]))
     singleItemSequences = [[[item]] for item in itemsInDataset]
     singleItemCounts = []
-    for i in trange(len(singleItemSequences), desc=f"Level: {1}"):
-        x = optCountSupport(dataset, singleItemSequences[i], minSupport, minGap, maxGap, maxSpan, use_time_constraints)
-        if x >= minSupport:
-            singleItemCounts.append((singleItemSequences[i], x))
+
+    # supportsLists = Parallel(n_jobs=numProcess)(delayed(optCountSupport)(singleItemSequences[i], minSupport, minGap, maxGap, maxSpan, use_time_constraints) for i in range(len(singleItemSequences)))
+    supportsLists = [optCountSupport(singleItemSequences[i], minSupport, minGap, maxGap, maxSpan, use_time_constraints) for i in trange(len(singleItemSequences), desc=f"Level {1}")]
+    for i in range(len(singleItemSequences)):
+        if supportsLists[i] >= minSupport:
+            singleItemCounts.append((singleItemSequences[i], supportsLists[i]))
     Overall.append(singleItemCounts)
     if verbose:
         print("Result, lvl 1")
@@ -280,17 +291,23 @@ def optApriori(dataset, minSupport, minGap=0, maxGap=15, maxSpan=60, use_time_co
                     break
             if check:
                 candidatesPruned.append(cand)
-        # on average 0-10 sec faster on our dataset (keep it ?)
         # candidatesPruned = [cand for cand in candidatesGenerated if all(x in candidatesLastLevel for x in generateDirectSubsequences(cand))]
         if verbose:
             print("Candidates pruned, lvl ", k + 1)
         # 3. Candidate checking
         candidatesCounts = []
         tot = len(candidatesPruned)
-        for i in trange(tot, desc=f"Level: {k+1}"):
-            supp = optCountSupport(dataset, candidatesPruned[i], minSupport, minGap, maxGap, maxSpan, use_time_constraints)
-            if supp >= minSupport:
-                candidatesCounts.append((candidatesPruned[i], supp))
+        
+        # supportsLists = Parallel(n_jobs=numProcess)(delayed(optCountSupport)(candidatesPruned[i], minSupport, minGap, maxGap, maxSpan, use_time_constraints) for i in trange(len(candidatesPruned)))
+        # for i in trange(tot, desc=f"Level: {k+1}"):
+        #     if supportsLists[i] >= minSupport:
+        #         candidatesCounts.append((candidatesPruned[i], supportsLists[i]))
+
+        supportsLists = [optCountSupport(candidatesPruned[i], minSupport, minGap, maxGap, maxSpan, use_time_constraints) for i in trange(tot, desc=f"Level {k+1}")]
+        for i in range(tot, desc=f"Level {k+1}"):
+            if supportsLists[i] >= minSupport:
+                candidatesCounts.append((candidatesPruned[i], supportsLists[i]))
+
         resultLvl = candidatesCounts
         if verbose:
             print("Result, lvl ", k + 1)
@@ -354,3 +371,28 @@ def apriori(dataset, minSupport, minGap=0, maxGap=15, maxSpan=60, use_time_const
         support,customer_indexes = countSupport_Customers(list(dataset.values()), sequences[i], minSupport, minGap, maxGap, maxSpan, use_time_constraints)
         true_seq_list.append((sequences[i], support, customer_indexes))
     return true_seq_list
+
+if __name__ == "__main__":
+    df = pd.read_csv('datasets/cleaned_dataframe.csv', sep='\t', index_col=0)
+    dfc = pd.read_csv('datasets/customer_dataframe.csv', sep='\t', index_col=0)
+    print("Total amount of customers:",len(dfc['TOrder']))
+    print("Total amount of customers with < 5 orders:",len(dfc[dfc['TOrder'] < 5]))
+    print("Total amount of customers with < 4 orders:",len(dfc[dfc['TOrder'] < 4]))
+    print("Total amount of customers with < 3 orders:",len(dfc[dfc['TOrder'] < 3]))
+    # here we can decide which ones to prune, < 5 can be good maybe
+    to_prune = dfc[dfc['TOrder']<5].index
+    df = df[~df['CustomerID'].isin(to_prune)]
+    df['BasketDate'] = pd.to_datetime(df["BasketDate"], dayfirst=True)
+    cust_trans_with_dates_list = {}
+    for customer in df['CustomerID'].unique():
+        cust_trans_with_dates = []
+        cust_df = df.loc[df['CustomerID'] == customer,['BasketID', 'BasketDate', 'ProdID']]
+        for basket in cust_df['BasketID'].unique():
+            prod_list = cust_df[cust_df['BasketID'] == basket]['ProdID'].unique().tolist()
+            date = cust_df[cust_df['BasketID'] == basket]['BasketDate'].iloc[0] #because of what said above we can take first date of order (at max we will have 2 elements differing of 1 minute)
+            cust_trans_with_dates.append((prod_list,date))
+        cust_trans_with_dates_list[customer] = cust_trans_with_dates
+
+    print("Starting GSP")
+    trans = list(cust_trans_with_dates_list.values())
+    result_set = optApriori(trans, 60, minGap=0, maxGap=45, maxSpan=240, use_time_constraints=True, verbose=False)
