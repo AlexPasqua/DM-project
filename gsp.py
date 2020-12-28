@@ -3,6 +3,21 @@
 # Professor: Anna Monreale
 # Students: Elia Piccoli, Nicola Gugole, Alex Pasquali
 
+# dataset format
+# [
+#   user1 [
+#           [elem1],
+#           [elem2],
+#           ...
+#         ],
+#   user2 [
+#           [elem1],
+#           [elem2],
+#           ...
+#         ],
+#   ...
+# ]
+
 import copy
 import time
 from tqdm import trange
