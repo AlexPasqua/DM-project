@@ -21,6 +21,7 @@
 import copy
 import time
 import os
+import tqdm
 import pandas as pd
 from tqdm import trange
 from joblib import Parallel, delayed
@@ -153,7 +154,7 @@ def isSubsequenceIterative(mainSequence, subSequenceClone, minGap, maxGap, maxSp
 def generateCandidatesForPair(cand1, cand2):
     """ Generates one candidate of size k from two candidates of size (k-1) as used in the apriori algorithm
     """
-    # TODO: gets lost here check
+    
     cand1Clone = copy.deepcopy(cand1)
     cand2Clone = copy.deepcopy(cand2)
     # drop the leftmost item from cand1:
@@ -221,14 +222,16 @@ def getSequencesSets(sequences):
 
     Structure used to compute optCountSupport faster.
     """
+
     sequencesSets = []
     for i in range(len(sequences)):
+        ss = []
         for j in range(len(sequences[i])):
-            s = []
+            s = set()
             for l in range(len(sequences[i][j])):
-                s.append(set([sequences[i][j][l]]))
-            sorted(s[-1], key=sequences[i][j].index) # order is maintained
-            sequencesSets.append(s)
+                s.add(sequences[i][j][l])
+            ss.append(s)
+        sequencesSets.append(ss)
     return sequencesSets
 
 # minGap, maxGap and maxSpan are all in days
@@ -276,8 +279,8 @@ def optApriori(dataset, minSupport, minGap=0, maxGap=15, maxSpan=60, use_time_co
     Overall = []
     itemsInDataset = sorted(set([item for sublist1 in dataset for sublist2 in sublist1 for item in sublist2[0]]))
     singleItemSequences = [[[item]] for item in itemsInDataset]
+    singleItemSets = [[set([item])] for item in itemsInDataset]
     singleItemCounts = []
-    singleItemSets = getSequencesSets(singleItemSequences)
     # supportsLists = Parallel(n_jobs=numProcess, prefer="threads")(delayed(optCountSupport)(singleItemSequences[i], minSupport, minGap, maxGap, maxSpan, use_time_constraints) for i in trange(len(singleItemSequences), desc=f"Level {1}"))
     supportsLists = [optCountSupport(singleItemSets[i], minSupport, minGap, maxGap, maxSpan, use_time_constraints) for i in trange(len(singleItemSequences), desc=f"Support level {1}")]
     for i in range(len(singleItemSequences)):
@@ -315,6 +318,7 @@ def optApriori(dataset, minSupport, minGap=0, maxGap=15, maxSpan=60, use_time_co
         # 3. Candidate checking
         candidatesCounts = []
         candidatesPrunedSets = getSequencesSets(candidatesPruned)
+        assert(len(candidatesPruned) == len(candidatesPrunedSets))
         tot = len(candidatesPruned)
         # supportsLists = Parallel(n_jobs=numProcess, prefer="threads")(delayed(optCountSupport)(candidatesPruned[i], minSupport, minGap, maxGap, maxSpan, use_time_constraints) for i in trange(tot, desc=f"Level {k+1}"))
         supportsLists = [optCountSupport(candidatesPrunedSets[i], minSupport, minGap, maxGap, maxSpan, use_time_constraints) for i in trange(tot, desc=f"Support level {k+1}")]
@@ -384,28 +388,3 @@ def apriori(dataset, minSupport, minGap=0, maxGap=15, maxSpan=60, use_time_const
         support,customer_indexes = countSupport_Customers(list(dataset.values()), sequences[i], minSupport, minGap, maxGap, maxSpan, use_time_constraints)
         true_seq_list.append((sequences[i], support, customer_indexes))
     return true_seq_list
-
-if __name__ == "__main__":
-    df = pd.read_csv('datasets/cleaned_dataframe.csv', sep='\t', index_col=0)
-    dfc = pd.read_csv('datasets/customer_dataframe.csv', sep='\t', index_col=0)
-    print("Total amount of customers:",len(dfc['TOrder']))
-    print("Total amount of customers with < 5 orders:",len(dfc[dfc['TOrder'] < 5]))
-    print("Total amount of customers with < 4 orders:",len(dfc[dfc['TOrder'] < 4]))
-    print("Total amount of customers with < 3 orders:",len(dfc[dfc['TOrder'] < 3]))
-    # here we can decide which ones to prune, < 5 can be good maybe
-    to_prune = dfc[dfc['TOrder']<5].index
-    df = df[~df['CustomerID'].isin(to_prune)]
-    df['BasketDate'] = pd.to_datetime(df["BasketDate"], dayfirst=True)
-    cust_trans_with_dates_list = {}
-    for customer in df['CustomerID'].unique():
-        cust_trans_with_dates = []
-        cust_df = df.loc[df['CustomerID'] == customer,['BasketID', 'BasketDate', 'ProdID']]
-        for basket in cust_df['BasketID'].unique():
-            prod_list = set(cust_df[cust_df['BasketID'] == basket]['ProdID'].unique().tolist())
-            date = cust_df[cust_df['BasketID'] == basket]['BasketDate'].iloc[0]
-            cust_trans_with_dates.append((prod_list,date))
-        cust_trans_with_dates_list[customer] = cust_trans_with_dates
-
-    print("Starting GSP")
-    trans = list(cust_trans_with_dates_list.values())
-    result_set = optApriori(trans, 60, minGap=0, maxGap=45, maxSpan=240, use_time_constraints=True, verbose=True)
