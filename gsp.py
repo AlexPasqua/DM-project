@@ -7,7 +7,7 @@
 # [
 #   user1 [
 #           [elem1],
-#           [elem2],
+#           [elem2, elem3],
 #           ...
 #         ],
 #   user2 [
@@ -68,7 +68,7 @@ def optCountSupport(candidateSequence, min_threshold, minGap, maxGap, maxSpan, u
     return total
 
 def countSupport_Customers(dataset, candidateSequence, min_threshold, minGap, maxGap, maxSpan, use_time_constraints):
-    """Complete computation for the support and list of customers of a sequence in a dataset
+    """Complete computation for the support and list of customers of a sequence in a dataset.
 
     Parameters
     ----------
@@ -105,6 +105,7 @@ def countSupport_Customers(dataset, candidateSequence, min_threshold, minGap, ma
 
 def isSubsequence(mainSequence, subSequence, minGap, maxGap, maxSpan, use_time_constraints):
     subSequenceClone = list(subSequence)  # clone the sequence, because we will alter it
+    subSequenceClone.reverse()
     return isSubsequenceIterative(mainSequence, subSequenceClone, minGap, maxGap, maxSpan, use_time_constraints)
 
 # Through out attempts it resulted that the recursive approach is (in this case) faster than the iterative
@@ -124,16 +125,16 @@ def isSubsequence(mainSequence, subSequence, minGap, maxGap, maxSpan, use_time_c
 #     return False
 
 # This is the main part of the algorithm, here is where the majority of the computation is focused
-# The complexity is O(n^3) it can be reduced to O(n^2*log(n)) if we can use binary search instead of issuperset
 def isSubsequenceIterative(mainSequence, subSequenceClone, minGap, maxGap, maxSpan, use_time_constraints):
     start = 0
     lastDate = None
     firstDate = 0
     while subSequenceClone:
         found = False
-        nextElem = subSequenceClone.pop(0)
+        # python list pop is O(1) for last position otherwise O(N-i) for position i
+        nextElem = subSequenceClone.pop(-1)
         for i in range(start, len(mainSequence)):
-            if (set(mainSequence[i][0]).issuperset(nextElem)):
+            if (mainSequence[i][0].issuperset(nextElem)):
                 if use_time_constraints:
                     if lastDate is None:
                         firstDate = mainSequence[i][1]
@@ -152,7 +153,7 @@ def isSubsequenceIterative(mainSequence, subSequenceClone, minGap, maxGap, maxSp
 def generateCandidatesForPair(cand1, cand2):
     """ Generates one candidate of size k from two candidates of size (k-1) as used in the apriori algorithm
     """
-    
+    # TODO: gets lost here check
     cand1Clone = copy.deepcopy(cand1)
     cand2Clone = copy.deepcopy(cand2)
     # drop the leftmost item from cand1:
@@ -178,7 +179,7 @@ def generateCandidatesForPair(cand1, cand2):
         return newCandidate
 
 def generateCandidates(lastLevelCandidates):
-    """ Generates the set of candidates of size k from the set of frequent sequences with size (k-1)
+    """ Generates the set of candidates of size k from the set of frequent sequences with size (k-1).
     """
 
     k = sum(len(i) for i in lastLevelCandidates[0]) + 1
@@ -202,7 +203,6 @@ def generateDirectSubsequences(sequence):
 
     A direct subsequence is any sequence that originates from deleting exactly one item from any element in the original sequence.
     """
-
     result = []
     for i, itemset in enumerate(sequence):
         if len(itemset) == 1:
@@ -215,6 +215,21 @@ def generateDirectSubsequences(sequence):
                 sequenceClone[i].pop(j)
                 result.append(sequenceClone)
     return result
+
+def getSequencesSets(sequences):
+    """Recreates the same structure used in apriori but includes items into sets.
+
+    Structure used to compute optCountSupport faster.
+    """
+    sequencesSets = []
+    for i in range(len(sequences)):
+        for j in range(len(sequences[i])):
+            s = []
+            for l in range(len(sequences[i][j])):
+                s.append(set([sequences[i][j][l]]))
+            sorted(s[-1], key=sequences[i][j].index) # order is maintained
+            sequencesSets.append(s)
+    return sequencesSets
 
 # minGap, maxGap and maxSpan are all in days
 def optApriori(dataset, minSupport, minGap=0, maxGap=15, maxSpan=60, use_time_constraints=False, verbose=False):
@@ -262,25 +277,29 @@ def optApriori(dataset, minSupport, minGap=0, maxGap=15, maxSpan=60, use_time_co
     itemsInDataset = sorted(set([item for sublist1 in dataset for sublist2 in sublist1 for item in sublist2[0]]))
     singleItemSequences = [[[item]] for item in itemsInDataset]
     singleItemCounts = []
-
-    # supportsLists = Parallel(n_jobs=numProcess)(delayed(optCountSupport)(singleItemSequences[i], minSupport, minGap, maxGap, maxSpan, use_time_constraints) for i in range(len(singleItemSequences)))
-    supportsLists = [optCountSupport(singleItemSequences[i], minSupport, minGap, maxGap, maxSpan, use_time_constraints) for i in trange(len(singleItemSequences), desc=f"Level {1}")]
+    singleItemSets = getSequencesSets(singleItemSequences)
+    # supportsLists = Parallel(n_jobs=numProcess, prefer="threads")(delayed(optCountSupport)(singleItemSequences[i], minSupport, minGap, maxGap, maxSpan, use_time_constraints) for i in trange(len(singleItemSequences), desc=f"Level {1}"))
+    supportsLists = [optCountSupport(singleItemSets[i], minSupport, minGap, maxGap, maxSpan, use_time_constraints) for i in trange(len(singleItemSequences), desc=f"Support level {1}")]
     for i in range(len(singleItemSequences)):
         if supportsLists[i] >= minSupport:
             singleItemCounts.append((singleItemSequences[i], supportsLists[i]))
     Overall.append(singleItemCounts)
     if verbose:
-        print("Result, lvl 1")
+        print(f"Result - lvl 1 [{len(singleItemCounts)}]")
     k = 1
     while True:
         if not Overall[k - 1]:
             break
         # 1. Candidate generation
+        if verbose:
+            print("Starting candidates generation")
         candidatesLastLevel = [x[0] for x in Overall[k - 1]]
         candidatesGenerated = generateCandidates(candidatesLastLevel)
         if verbose:
-            print("Candidates generated, lvl ", k + 1)
-        # 2. Candidate pruning
+            print("Candidates generated - lvl ", k + 1)
+        # 2. Candidate pruning (Slower part)
+        if verbose:
+            print("Starting candidates pruning")
         candidatesPruned = []
         for cand in candidatesGenerated:
             check = True
@@ -291,26 +310,20 @@ def optApriori(dataset, minSupport, minGap=0, maxGap=15, maxSpan=60, use_time_co
                     break
             if check:
                 candidatesPruned.append(cand)
-        # candidatesPruned = [cand for cand in candidatesGenerated if all(x in candidatesLastLevel for x in generateDirectSubsequences(cand))]
         if verbose:
-            print("Candidates pruned, lvl ", k + 1)
+            print("Candidates pruned - lvl ", k + 1)
         # 3. Candidate checking
         candidatesCounts = []
+        candidatesPrunedSets = getSequencesSets(candidatesPruned)
         tot = len(candidatesPruned)
-        
-        # supportsLists = Parallel(n_jobs=numProcess)(delayed(optCountSupport)(candidatesPruned[i], minSupport, minGap, maxGap, maxSpan, use_time_constraints) for i in trange(len(candidatesPruned)))
-        # for i in trange(tot, desc=f"Level: {k+1}"):
-        #     if supportsLists[i] >= minSupport:
-        #         candidatesCounts.append((candidatesPruned[i], supportsLists[i]))
-
-        supportsLists = [optCountSupport(candidatesPruned[i], minSupport, minGap, maxGap, maxSpan, use_time_constraints) for i in trange(tot, desc=f"Level {k+1}")]
-        for i in range(tot, desc=f"Level {k+1}"):
+        # supportsLists = Parallel(n_jobs=numProcess, prefer="threads")(delayed(optCountSupport)(candidatesPruned[i], minSupport, minGap, maxGap, maxSpan, use_time_constraints) for i in trange(tot, desc=f"Level {k+1}"))
+        supportsLists = [optCountSupport(candidatesPrunedSets[i], minSupport, minGap, maxGap, maxSpan, use_time_constraints) for i in trange(tot, desc=f"Support level {k+1}")]
+        for i in range(tot):
             if supportsLists[i] >= minSupport:
                 candidatesCounts.append((candidatesPruned[i], supportsLists[i]))
-
         resultLvl = candidatesCounts
         if verbose:
-            print("Result, lvl ", k + 1)
+            print(f"Result - lvl {k + 1} [{len(resultLvl)}]")
         Overall.append(resultLvl)
         k = k + 1
     # Creates a list of all the results from different levels
@@ -388,11 +401,11 @@ if __name__ == "__main__":
         cust_trans_with_dates = []
         cust_df = df.loc[df['CustomerID'] == customer,['BasketID', 'BasketDate', 'ProdID']]
         for basket in cust_df['BasketID'].unique():
-            prod_list = cust_df[cust_df['BasketID'] == basket]['ProdID'].unique().tolist()
-            date = cust_df[cust_df['BasketID'] == basket]['BasketDate'].iloc[0] #because of what said above we can take first date of order (at max we will have 2 elements differing of 1 minute)
+            prod_list = set(cust_df[cust_df['BasketID'] == basket]['ProdID'].unique().tolist())
+            date = cust_df[cust_df['BasketID'] == basket]['BasketDate'].iloc[0]
             cust_trans_with_dates.append((prod_list,date))
         cust_trans_with_dates_list[customer] = cust_trans_with_dates
 
     print("Starting GSP")
     trans = list(cust_trans_with_dates_list.values())
-    result_set = optApriori(trans, 60, minGap=0, maxGap=45, maxSpan=240, use_time_constraints=True, verbose=False)
+    result_set = optApriori(trans, 60, minGap=0, maxGap=45, maxSpan=240, use_time_constraints=True, verbose=True)
