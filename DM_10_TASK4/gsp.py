@@ -106,7 +106,7 @@ def isSubsequence(mainSequence, subSequence, minGap, maxGap, maxSpan, use_time_c
     subSequenceClone.reverse()
     return isSubsequenceIterative(mainSequence, subSequenceClone, minGap, maxGap, maxSpan, use_time_constraints)
 
-# Through out attempts it resulted that the recursive approach is (in this case) faster than the iterative
+# Through out attempts it resulted that the recursive approach is (in this case) slightly faster than the iterative
 # but the space complexity is prohibitive for non-small datasets, hence we use the iterative approach
 
 # def isSubsequenceRecursive(mainSequence, subSequenceClone, start=0):
@@ -127,12 +127,13 @@ def isSubsequenceIterative(mainSequence, subSequenceClone, minGap, maxGap, maxSp
     start = 0
     lastDate = None
     firstDate = 0
+    isList = isinstance(mainSequence[0][0], list)
     while subSequenceClone:
         found = False
-        # python list pop is O(1) for last position otherwise O(N-i) for position i
         nextElem = subSequenceClone.pop(-1)
         for i in range(start, len(mainSequence)):
-            if (mainSequence[i][0].issuperset(nextElem)):
+            isSuperSet = set(mainSequence[i][0]).issuperset(nextElem) if isList else mainSequence[i][0].issuperset(nextElem) 
+            if isSuperSet:
                 if use_time_constraints:
                     if lastDate is None:
                         firstDate = mainSequence[i][1]
@@ -239,8 +240,8 @@ def optApriori(dataset, minSupport, minGap=0, maxGap=15, maxSpan=60, use_time_co
 
     Parameters
     ----------
-    dataset : list of list
-        list of sequences, for which the frequent (sub-)sequences are computed
+    dataset : list of list of tuples of set and timestamp
+        set of items, for which the frequent (sub-)sequences are computed
         
     minSupport : int
         minimum support
@@ -342,8 +343,8 @@ def apriori(dataset, minSupport, minGap=0, maxGap=15, maxSpan=60, use_time_const
 
     Parameters
     ----------
-    dataset : list of list
-        list of sequences, for which the frequent (sub-)sequences are computed
+    dataset : list of list of tuples of set and timestamp
+        set of items, for which the frequent (sub-)sequences are computed
         
     minSupport : int
         minimum support
