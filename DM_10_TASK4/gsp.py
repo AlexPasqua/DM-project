@@ -3,26 +3,29 @@
 # Professor: Anna Monreale
 # Students: Elia Piccoli, Nicola Gugole, Alex Pasquali
 
-# dataset format for optimized computation
+# Dataset format for optimized computation
 # [   Customer[i]
 #     [
-#         ({items1},date1)
-#         ({items2},date2)
+#         ({items1},date1),
+#         ({items2},date2),
+#               ...
 #     ],
 #     [
-#         ({items1},date1)
+#         ({items1},date1),
 #         ({items2},date2)
-#     ]
+#     ],
+#     ...
 # ]
 
 import copy
 import time
 import os
 import tqdm
-import pandas as pd
+
 from tqdm import trange
 from joblib import Parallel, delayed
 
+# Save dataset in GlobalScope (faster to access)
 dt = None
 
 def optCountSupport(candidateSequence, min_threshold, minGap, maxGap, maxSpan, use_time_constraints):
@@ -132,6 +135,7 @@ def isSubsequenceIterative(mainSequence, subSequenceClone, minGap, maxGap, maxSp
         found = False
         nextElem = subSequenceClone.pop(-1)
         for i in range(start, len(mainSequence)):
+            # to generalize wrt data strucure - for better performance restrict to only sets
             isSuperSet = set(mainSequence[i][0]).issuperset(nextElem) if isList else mainSequence[i][0].issuperset(nextElem) 
             if isSuperSet:
                 if use_time_constraints:
@@ -343,8 +347,8 @@ def apriori(dataset, minSupport, minGap=0, maxGap=15, maxSpan=60, use_time_const
 
     Parameters
     ----------
-    dataset : list of list of tuples of set and timestamp
-        set of items, for which the frequent (sub-)sequences are computed
+    dataset : list of list of tuples of set/list and timestamp
+        set/list of items, for which the frequent (sub-)sequences are computed
         
     minSupport : int
         minimum support
