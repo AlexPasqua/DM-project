@@ -3,19 +3,16 @@
 # Professor: Anna Monreale
 # Students: Elia Piccoli, Nicola Gugole, Alex Pasquali
 
-# dataset format
-# [
-#   user1 [
-#           [elem1],
-#           [elem2, elem3],
-#           ...
-#         ],
-#   user2 [
-#           [elem1],
-#           [elem2],
-#           ...
-#         ],
-#   ...
+# dataset format for optimized computation
+# [   Customer[i]
+#     [
+#         ({items1},date1)
+#         ({items2},date2)
+#     ],
+#     [
+#         ({items1},date1)
+#         ({items2},date2)
+#     ]
 # ]
 
 import copy
