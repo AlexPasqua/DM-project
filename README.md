@@ -46,6 +46,6 @@ Consider the problem of predicting for each customer a label that defines if (s)
 # Sequential Pattern Mining
 1. Consider the problem of mining frequent sequential patterns. To address the task:
 	* Model the customer as a sequence of baskets
-	* Apply the Sequential Pattern Mining algorithm ([gsp](gsp.py) implementation)
+	* Apply the Sequential Pattern Mining algorithm ([gsp](DM_10_TASK4/gsp.py) implementation)
 	* Discuss the resulting patterns
 2. Handling _time constraint_ while building Sequential Patterns
